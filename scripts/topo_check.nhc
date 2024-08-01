@@ -1,0 +1,86 @@
+#!/bin/bash
+
+# Check for GPU topology 
+
+GPU_REMAPPED_ROWS_QUERY="remapped_rows.pending,remapped_rows.failure,remapped_rows.uncorrectable"
+GPU_QUERY="ecc.errors.uncorrected.volatile.sram,ecc.errors.uncorrected.aggregate.sram,ecc.errors.uncorrected.volatile.dram,ecc.errors.uncorrected.aggregate.dram,ecc.errors.corrected.volatile.sram,ecc.errors.corrected.aggregate.sram,ecc.errors.corrected.volatile.dram,ecc.errors.corrected.aggregate.dram"
+TOPO_MD5SUM="3ca63903d90faf8ac54633b97606835d  -"
+
+
+function collect_topo_data() {
+
+   gpu_query_out=$(nvidia-smi topo -m)
+   gpu_query_out_rc=$?
+   if [[ $gpu_query_out_rc != 0 ]]
+   then
+     log "$gpu_query_out"
+     die 1 "$FUNCNAME: nvidia-smi (get gpu topology) returned error code $gpu_query_out_rc"
+   fi
+   gpu_topo_md5_out=$(nvidia-smi topo -m | md5sum )
+   gpu_topo_md5_out_rc=$?
+   if [[ $gpu_topo_md5_out_rc != 0 ]]
+   then
+     log "$gpu_topo_md5_out"
+     die 1 "$FUNCNAME: nvidia-smi (get topo md5 sum) returned error code $gpu_topo_md5_out_rc"
+   fi
+   if [[ $gpu_topo_md5_out != $TOPO_MD5SUM ]]
+   then
+     log "Topology is off. output is $gpu_topo_md5_out and reference is $TOPO_MD5SUM"
+     die 1 "$FUNCNAME: nvidia-smi (get topo md5 sum) is $gpu_topo_md5_out and reference is $TOPO_MD5SUM "
+   fi
+   IFS=$'\n'
+   gpu_query_out_lines=( $gpu_query_out ) 
+   gpu_topo_md5_query_out_lines=( $gpu_topo_md5_out ) 
+   IFS=$' \t\n'
+}
+
+
+function check_gpu_topo() {
+
+   collect_topo_data
+
+   #ecc_error_threshold=$1
+   #ecc_sram_threshold=$2
+
+   #if [[ ${#gpu_query_out_lines[*]} != ${#gpu_remapped_rows_query_out_lines[*]} ]]; then
+      #die 1 "$FUNCNAME: nvidia-smi (Number GPU's not correct), (${#gpu_query_out_lines[*]},${#gpu_remapped_rows_query_out_lines[*]})"
+   #fi
+   #for ((i=0; i<${#gpu_remapped_rows_query_out_lines[*]}; i++))
+   #do
+      #IFS=$', '
+      #gpu_remapped_rows_query_out_line=( ${gpu_remapped_rows_query_out_lines[$i]} ) 
+      #gpu_query_out_line=( ${gpu_query_out_lines[$i]} ) 
+      #IFS=$' \t\n'
+      #dbg "GPU id $i: row remap pending, (${gpu_remapped_rows_query_out_line[0]})"
+      #if [[ ${gpu_remapped_rows_query_out_line[0]} > 0 ]]
+      #then
+         #die 1 "$FUNCNAME: GPU id $i: Row remap pending"
+      #fi
+      #dbg "GPU id $i: row remap error, (${gpu_remapped_rows_query_out_line[1]})"
+      #if [[ ${gpu_remapped_rows_query_out_line[1]} > 0 ]]
+      #then
+         #die 1 "$FUNCNAME: GPU id $i: Row remap error"
+      #fi
+      #dbg "GPU id $i: row remap uncorrectable error count, (${gpu_remapped_rows_query_out_line[3]})"
+      #if [[ ${gpu_remapped_rows_query_out_line[3]} > 512 ]]
+      #then
+         #die 1 "$FUNCNAME: GPU id $i: Row remap uncorrectable error count is too high"
+      #fi
+      #dbg "GPU id $i: No GPU row remap pending, row remap errors or row remap high count errors"
+      #if [[ ${gpu_query_out_line[4]} -gt $ecc_sram_threshold || ${gpu_query_out_line[5]} -gt $ecc_sram_threshold ]]; then
+         #die 1 "$FUNCNAME: GPU id $i: High SRAM correctable ECC error count detected, (${gpu_query_out_line[4]},${gpu_query_out_line[5]})"
+      #elif [[ ${gpu_query_out_line[0]} -gt 0 || ${gpu_query_out_line[1]} -gt 0 ]]; then
+         #die 1 "$FUNCNAME: GPU id $i: SRAM Uncorrectable ECC error count detected, (${gpu_query_out_line[0]},${gpu_query_out_line[1]})"
+      #else
+         #dbg "GPU id $i: Normal SRAM Uncorrectable/correctable ECC error count, (${gpu_query_out_line[0]},${gpu_query_out_line[1]},${gpu_query_out_line[4]},${gpu_query_out_line[5]})"
+      #fi
+      #if [[ -n $ecc_error_threshold ]]; then
+         #if [[ ${gpu_query_out_line[2]} -gt $ecc_error_threshold || ${gpu_query_out_line[3]} -gt $ecc_error_threshold || ${gpu_query_out_line[6]} -gt $ecc_error_threshold || ${gpu_query_out_line[7]} -gt $ecc_error_threshold ]]; then
+	    #die 1 "$FUNCNAME: GPU id $i: High DRAM Uncorrectable/correctable ECC error count detected, (${gpu_query_out_line[2]},${gpu_query_out_line[3]},${gpu_query_out_line[6]},${gpu_query_out_line[7]})"
+         #else
+            #dbg "GPU id $i: Normal DRAM Uncorrectable/correctable ECC error count, (${gpu_query_out_line[2]},${gpu_query_out_line[3]},${gpu_query_out_line[6]},${gpu_query_out_line[7]})"
+         #fi
+      #fi
+   #done
+return 0
+}
